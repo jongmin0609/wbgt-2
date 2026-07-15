@@ -29,9 +29,6 @@ RISK_PRIORITY = {
     "주의": 2,
     "안전": 1,
 }
-LOCAL_WORKER_KEY = "wgbt-selected-worker-id"
-
-
 def query_value(name):
     value = st.query_params.get(name)
     if isinstance(value, list):
@@ -118,41 +115,7 @@ def get_guidance(status):
     )
 
 
-def render_browser_worker_script(worker_id=None, clear=False, redirect=False):
-    worker_json = json.dumps(worker_id, ensure_ascii=False)
-    key_json = json.dumps(LOCAL_WORKER_KEY)
-    components.html(
-        f"""
-        <script>
-        (function() {{
-            const key = {key_json};
-            const workerId = {worker_json};
-            try {{
-                const storage = window.parent.localStorage;
-                const params = new URLSearchParams(window.parent.location.search);
-                if ({str(clear).lower()}) {{
-                    storage.removeItem(key);
-                    return;
-                }}
-                if (workerId) {{
-                    storage.setItem(key, workerId);
-                }}
-                if ({str(redirect).lower()} && !params.get("worker_id") && !params.get("view")) {{
-                    const saved = storage.getItem(key);
-                    if (saved) {{
-                        params.set("worker_id", saved);
-                        window.parent.location.search = params.toString();
-                    }}
-                }}
-            }} catch (_) {{}}
-        }})();
-        </script>
-        """,
-        height=0,
-    )
-
-
-def render_auto_refresh(interval_ms=5000):
+def render_manager_auto_refresh(interval_ms=5000):
     components.html(
         f"""
         <script>
@@ -166,7 +129,11 @@ def render_auto_refresh(interval_ms=5000):
                         return;
                     }}
                 }} catch (_) {{}}
-                window.parent.location.reload();
+                const url = new URL(window.parent.location.href);
+                url.searchParams.set("view", "manager");
+                url.searchParams.delete("worker_id");
+                url.searchParams.delete("reset_worker");
+                window.parent.location.replace(url.toString());
             }}, intervalMs);
         }})();
         </script>
@@ -599,17 +566,11 @@ def render_header(kicker, title, subtitle):
 
 
 def render_entry_page():
-    if query_value("reset_worker") == "1":
-        render_browser_worker_script(clear=True)
-        st.info("이 기기에 저장된 작업자 선택을 초기화했습니다. 다시 작업자를 선택하세요.")
-    else:
-        render_browser_worker_script(redirect=True)
-
     workers = list_workers()
     render_header(
         "작업자 선택",
         "온열 위험도 중앙 입력",
-        "작업자는 처음 한 번 이름을 선택하면 이 브라우저가 기본 작업자를 기억합니다.",
+        "작업자는 본인 이름을 선택한 뒤 심박수와 WBGT를 중앙서버로 전송합니다.",
     )
 
     with st.form("worker-start-form"):
@@ -623,7 +584,7 @@ def render_entry_page():
         submitted = st.form_submit_button("이 작업자로 시작", type="primary")
 
     if submitted:
-        go_to(worker_id=selected_id)
+        go_to(view="worker", worker_id=selected_id)
 
     if st.button("관리자 전체 현황 열기"):
         go_to(view="manager")
@@ -632,8 +593,8 @@ def render_entry_page():
         f"""
         <p class="notice">
             관리자 화면 주소: <strong>?view=manager</strong><br>
-            작업자 화면은 선택한 브라우저의 저장공간에 식별번호를 보관하므로,
-            같은 휴대폰/같은 브라우저로 다시 접속하면 기본 작업자로 자동 이동합니다.
+            작업자 화면은 URL의 작업자 식별번호로 구분합니다.
+            화면이 자동으로 다른 역할로 전환되지 않도록 브라우저 저장공간 기반 자동 이동은 사용하지 않습니다.
             현재 DB 파일: {escape(str(DB_PATH))}
         </p>
         """,
@@ -678,7 +639,6 @@ def render_measurement_form(worker, latest):
                 f"{saved['name']} 작업자 측정값 저장 완료: "
                 f"{saved['heart_rate']} bpm / WBGT {saved['wbgt']:.1f} / {saved['risk']}"
             )
-            st.rerun()
 
 
 def render_worker_live_dashboard(worker_id):
@@ -772,24 +732,20 @@ def render_worker_page(worker_id):
             "관리자 화면에서 작업자 식별번호가 등록되어 있는지 확인하세요.",
         )
         if st.button("작업자 선택으로 돌아가기"):
-            go_to(reset_worker=1)
+            go_to(view="worker")
         return
 
-    render_browser_worker_script(worker["worker_id"])
     render_header(
         "작업자 개인 대시보드",
         worker_label(worker),
-        "이 브라우저는 현재 작업자를 기본값으로 기억합니다. 심박수와 WBGT만 입력하면 중앙서버가 위험도를 계산합니다.",
+        "심박수와 WBGT만 입력하면 중앙서버가 이 작업자의 위험도를 계산합니다.",
     )
 
-    columns = st.columns([1, 1, 1])
+    columns = st.columns([1, 3])
     with columns[0]:
-        if st.button("관리자 화면"):
-            go_to(view="manager")
-    with columns[1]:
         if st.button("다른 작업자 선택"):
-            go_to(reset_worker=1)
-    with columns[2]:
+            go_to(view="worker")
+    with columns[1]:
         st.caption(
             f"고정 프로필: {worker['age']}세 / {worker['weight']:g}kg / {sex_label(worker['sex'])}"
         )
@@ -1048,7 +1004,7 @@ def render_manager_page():
     columns = st.columns([1, 1, 4])
     with columns[0]:
         if st.button("작업자 선택"):
-            go_to(reset_worker=1)
+            go_to(view="worker")
     with columns[1]:
         st.caption(f"DB: {DB_PATH.name}")
 
@@ -1056,7 +1012,7 @@ def render_manager_page():
     render_manager_live_dashboard()
     auto_refresh = st.toggle("관리자 화면 자동 새로고침", value=True)
     if auto_refresh:
-        render_auto_refresh(interval_ms=5000)
+        render_manager_auto_refresh(interval_ms=5000)
 
 
 def main():

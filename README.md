@@ -37,12 +37,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\start_servers.ps1
 
 ```text
 작업자 선택/입력: http://서버IP:8501
+작업자 직접 링크: http://서버IP:8501?view=worker&worker_id=W001
 관리자 현황:     http://서버IP:8501?view=manager
 ```
 
-작업자는 처음 접속할 때 본인 이름과 식별번호를 선택합니다. 이후 같은 기기와
-같은 브라우저로 다시 접속하면 브라우저 저장공간에 남은 작업자 식별번호를 읽어
-기본 작업자 화면으로 자동 이동합니다.
+작업자는 처음 접속할 때 본인 이름과 식별번호를 선택합니다. 선택 후 주소창에는
+`?view=worker&worker_id=W001` 같은 작업자 직접 링크가 표시됩니다. 화면이
+자동으로 관리자/작업자 사이를 오가지 않도록 브라우저 저장공간 기반 자동 이동은
+사용하지 않습니다.
 
 Render로 배포하면 Wi-Fi IP 대신 공개 HTTPS 링크를 사용할 수 있습니다.
 배포 절차와 작업자/관리자 링크 형식은 `DEPLOY_RENDER.md`를 참고하세요.
