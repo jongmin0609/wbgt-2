@@ -152,6 +152,29 @@ def render_browser_worker_script(worker_id=None, clear=False, redirect=False):
     )
 
 
+def render_auto_refresh(interval_ms=5000):
+    components.html(
+        f"""
+        <script>
+        (function() {{
+            const intervalMs = {int(interval_ms)};
+            window.setTimeout(() => {{
+                try {{
+                    const active = window.parent.document.activeElement;
+                    const tag = active && active.tagName ? active.tagName.toLowerCase() : "";
+                    if (["input", "textarea", "select", "button"].includes(tag)) {{
+                        return;
+                    }}
+                }} catch (_) {{}}
+                window.parent.location.reload();
+            }}, intervalMs);
+        }})();
+        </script>
+        """,
+        height=0,
+    )
+
+
 def render_device_alert_controls(status, guidance):
     payload = {
         "workerId": status["worker_id"],
@@ -658,7 +681,6 @@ def render_measurement_form(worker, latest):
             st.rerun()
 
 
-@st.experimental_fragment(run_every=2)
 def render_worker_live_dashboard(worker_id):
     status = get_latest_measurement(worker_id)
     if status is None:
@@ -884,7 +906,6 @@ def render_status_table(statuses):
     st.dataframe(rows, use_container_width=True, hide_index=True)
 
 
-@st.experimental_fragment(run_every=2)
 def render_manager_live_dashboard():
     statuses = list_latest_statuses()
     render_summary_cards(statuses)
@@ -1033,6 +1054,9 @@ def render_manager_page():
 
     render_worker_profile_admin()
     render_manager_live_dashboard()
+    auto_refresh = st.toggle("관리자 화면 자동 새로고침", value=True)
+    if auto_refresh:
+        render_auto_refresh(interval_ms=5000)
 
 
 def main():
