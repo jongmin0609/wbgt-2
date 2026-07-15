@@ -4,7 +4,8 @@ services:
     plan: free
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: streamlit run main.py --server.address=0.0.0.0 --server.port=$PORT --server.headless=true
+    startCommand: python -m streamlit run main.py --server.address=0.0.0.0 --server.port=$PORT --server.headless=true --server.enableCORS=false --server.enableXsrfProtection=false --browser.gatherUsageStats=false
+    healthCheckPath: /_stcore/health
     envVars:
       - key: WGBT_DATA_DIR
         value: /tmp/wgbt-data
