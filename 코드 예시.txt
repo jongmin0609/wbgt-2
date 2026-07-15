@@ -1,0 +1,181 @@
+프로젝트 구조
+project/
+│
+├── main.py
+├── metabolism.py
+├── wbgt_risk.py
+├── utils.py
+├── requirements.txt
+│
+└── data/
+    └── sample.csv
+main.py
+from metabolism import estimate_vo2, calculate_calories
+from wbgt_risk import calculate_heat_risk
+
+# 사용자 정보
+age = 25
+weight = 70
+sex = "male"
+
+# 실시간 측정값
+heart_rate = 130
+wbgt = 31.5
+
+try:
+
+    # 성별 한글 변환
+    if sex.lower() == "male":
+        sex_kor = "남성"
+
+    elif sex.lower() == "female":
+        sex_kor = "여성"
+
+    else:
+        sex_kor = "알 수 없음"
+
+    # 1. VO2 계산
+    vo2 = estimate_vo2(age, sex, heart_rate)
+
+    # 2. 칼로리 계산
+    kcal = calculate_calories(vo2, weight)
+
+    # 3. 위험도 계산
+    risk, workload = calculate_heat_risk(wbgt, kcal)
+
+    # 결과 출력
+    print("===== 온열질환 위험 분석 결과 =====")
+
+    print(f"Age: {age}")
+    print(f"Sex: {sex_kor}")
+    print(f"Weight: {weight} kg")
+    print(f"Heart Rate: {heart_rate} bpm")
+    print(f"WBGT: {wbgt}")
+
+    print("----------------------------")
+
+    print(f"VO2: {vo2:.2f} ml/kg/min")
+    print(f"Calories Burned: {kcal:.2f} kcal/min")
+    print(f"Workload Level: {workload}")
+    print(f"Heat Risk Level: {risk}")
+
+except ValueError as e:
+
+    print(f"입력 오류: {e}")
+metabolism.py
+def estimate_vo2(age, sex, hr):
+
+    # 입력값 검증
+    if age <= 0 or age > 120:
+        raise ValueError("나이는 1~120 범위여야 합니다.")
+
+    sex = sex.lower()
+
+    hr_max = 220 - age
+
+    # 심박수 검증
+    if hr <= 0 or hr > 220:
+        raise ValueError("심박수는 1~220 범위여야 합니다.")
+
+    # 최대심박수 초과 검증
+    if hr > hr_max + 20:
+        raise ValueError("심박수가 비정상적으로 높습니다.")
+
+    # 성별별 평균 VO2max
+    if sex == "male":
+        vo2_max = 45
+
+    elif sex == "female":
+        vo2_max = 35
+
+    else:
+        raise ValueError("성별은 male 또는 female 이어야 합니다.")
+
+    # 운동강도 계산
+    intensity = hr / hr_max
+
+    # 최대 제한
+    if intensity > 1:
+        intensity = 1
+
+    # VO2 계산
+    vo2 = vo2_max * intensity
+
+    return vo2
+
+
+def calculate_calories(vo2, weight):
+
+    # 체중 검증
+    if weight <= 0 or weight > 300:
+        raise ValueError("체중은 1~300kg 범위여야 합니다.")
+
+    # 산소 소비량 계산
+    oxygen_consumption = (vo2 * weight) / 1000
+
+    # 칼로리 계산
+    kcal_per_min = oxygen_consumption * 5
+
+    return kcal_per_min
+wbgt_risk.py
+def calculate_heat_risk(wbgt, kcal):
+
+    # WBGT 검증
+    if wbgt < 0 or wbgt > 60:
+        raise ValueError("WBGT 값이 비정상적입니다.")
+
+    # kcal 검증
+    if kcal < 0:
+        raise ValueError("칼로리 값이 비정상적입니다.")
+
+    # 작업강도 분류
+    if kcal < 3:
+        workload = "저강도"
+
+    elif kcal < 6:
+        workload = "중강도"
+
+    else:
+        workload = "고강도"
+
+    # 위험도 판정
+    if wbgt >= 33:
+
+        if workload == "고강도":
+            risk = "즉시 작업중지"
+
+        else:
+            risk = "매우 위험"
+
+    elif wbgt >= 31:
+
+        if workload == "고강도":
+            risk = "매우 위험"
+
+        else:
+            risk = "위험"
+
+    elif wbgt >= 28:
+
+        if workload == "고강도":
+            risk = "위험"
+
+        else:
+            risk = "주의"
+
+    else:
+        risk = "안전"
+
+    return risk, workload
+utils.py
+# 공통 유틸 함수 파일
+requirements.txt
+pandas==2.2.2
+numpy==1.26.4
+matplotlib==3.8.4
+streamlit==1.35.0
+data/sample.csv
+time,heart_rate,wbgt,age,weight,sex
+10:00,120,30.5,25,70,male
+10:01,125,31.0,25,70,male
+10:02,130,31.2,25,70,male

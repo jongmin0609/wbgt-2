@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: wgbt-multi-worker-dashboard
+    plan: free
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run main.py --server.address=0.0.0.0 --server.port=$PORT --server.headless=true
+    envVars:
+      - key: WGBT_DATA_DIR
+        value: /tmp/wgbt-data
+      - key: WGBT_DB_PATH
+        value: /tmp/wgbt-data/workers.db
+      - key: PYTHON_VERSION
+        value: 3.12.13
